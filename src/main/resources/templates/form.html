@@ -10,7 +10,7 @@
 <div>
     <a th:href="@{/listar}">volver</a>
     <form th:action="@{/form}" method="post" th:object="${producto}"> <!-- Estamos enviandolo al PostMapping-->
-        <input th:if="${producto.id != null}" type="hidden" th:field="*{id}"> <!-- th:field es un atributo de thymeleaf que mapea el campo segun el atributo id de Producto, ademas tiene un if para identificar cuando cargamos a esta vista un producto para editarlo-->
+       <!--  <input th:if="${producto.id != null}" type="hidden" th:field="*{id}"> --> <!-- th:field es un atributo de thymeleaf que mapea el campo segun el atributo id de Producto, ademas tiene un if para identificar cuando cargamos a esta vista un producto para editarlo-->
         <div>
             <label for="nombre">Nombre</label> <!-- for es un atributo html para enlazar la etiqueta label con el campo-->
             <div><input type="text" th:field="*{nombre}"></div>

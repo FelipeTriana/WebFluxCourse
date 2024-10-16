@@ -10,12 +10,15 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.SessionAttributes;
+import org.springframework.web.bind.support.SessionStatus;
 import org.thymeleaf.spring6.context.webflux.ReactiveDataDriverContextVariable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
- 
+
+@SessionAttributes("producto") //Para que el objeto producto se mantenga en la sesion (Para poder tener presente el id del producto que se esta editando)
 @Controller
 public class ProductoController {
 
@@ -47,7 +50,8 @@ public class ProductoController {
 
     //El objeto producto es bidireccional, va del controlador a la vista y de la vista al controlador
     @PostMapping("/form")
-    public Mono<String> guardar(Producto producto){
+    public Mono<String> guardar(Producto producto, SessionStatus status){ //SessionStatus para limpiar el objeto producto de la sesion
+        status.setComplete(); //Limpiamos el objeto producto de la sesion cuando finaliza el proceso y es guardado en la bd
         return service.save(producto).doOnNext(p -> {
             log.info("Producto guardado: " + p.getNombre() + " Id: " + p.getId());
         }).thenReturn("redirect:/listar"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
@@ -55,7 +59,7 @@ public class ProductoController {
 
     @GetMapping("/form/{id}")
     public Mono<String> editar(@PathVariable String id, Model model){ //Model para poder ir a buscar el producto por id y pasarlo a la vista
-        Mono<Producto> productoMono = service.findById(id).doOnNext(p -> log.info("Producto recuperado: " + p.getNombre()));
+        Mono<Producto> productoMono = service.findById(id).doOnNext(p -> log.info("Producto recuperado: " + p.getNombre())).defaultIfEmpty(new Producto()); //Si no se encuentra el producto se crea un producto vacio
 
         model.addAttribute("titulo", "Editar producto");
         model.addAttribute("producto", productoMono);
