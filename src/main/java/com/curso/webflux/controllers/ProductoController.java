@@ -1,52 +1,79 @@
 package com.curso.webflux.controllers;
 
-import com.curso.webflux.models.dao.ProductoDao;
 import com.curso.webflux.models.documents.Producto;
+import com.curso.webflux.models.services.ProductoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.thymeleaf.spring6.context.webflux.ReactiveDataDriverContextVariable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-
+ 
 @Controller
 public class ProductoController {
 
     @Autowired
-    private ProductoDao dao;
+    private ProductoService service;
 
     private static final Logger log = LoggerFactory.getLogger(ProductoController.class);
 
     //Se renderiza la vista listar.html con los productos que se encuentran en la base de datos
     @GetMapping({"/listar", "/"})
-    public String listar(Model model){
-        Flux<Producto> productos = dao.findAll().map(producto -> {
-            producto.setNombre(producto.getNombre().toUpperCase());
-            return producto;
-        });
+    public Mono<String> listar(Model model){
+        Flux<Producto> productos = service.findAllConNombreUpperCase();
 
         productos.subscribe(prod -> log.info(prod.getNombre()));
 
         model.addAttribute("productos", productos);   //Aqui aunque no lo vemos se esta haciendo un subscribe ya que la plantilla es la que se subscribe al observable
         model.addAttribute("titulo", "Listado de productos");
-        return "listar";
+        return Mono.just("listar");
     }
+
+    //Metodo que despliega en la vista el formulario para crear un producto
+    //Tenemos que pasar el objeto producto a la vista para que se pueda bindear con el formulario
+    @GetMapping("/form")
+    public Mono<String> crear(Model model){
+        model.addAttribute("producto", new Producto());
+        model.addAttribute("titulo", "Formulario de producto");
+        return Mono.just("form");   //Cuando retornamos el nombre de la vista se carga dicha vista dentro de la peticion http
+    }
+
+    //El objeto producto es bidireccional, va del controlador a la vista y de la vista al controlador
+    @PostMapping("/form")
+    public Mono<String> guardar(Producto producto){
+        return service.save(producto).doOnNext(p -> {
+            log.info("Producto guardado: " + p.getNombre() + " Id: " + p.getId());
+        }).thenReturn("redirect:/listar"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
+    }
+
+    @GetMapping("/form/{id}")
+    public Mono<String> editar(@PathVariable String id, Model model){ //Model para poder ir a buscar el producto por id y pasarlo a la vista
+        Mono<Producto> productoMono = service.findById(id).doOnNext(p -> log.info("Producto recuperado: " + p.getNombre()));
+
+        model.addAttribute("titulo", "Editar producto");
+        model.addAttribute("producto", productoMono);
+
+        return Mono.just("form");
+
+    }
+
 
     /*
       A esto se le llama reactive data driver y es una forma de trabajar la contrapresion con thymeleaf.
-      Es una de las formas mas potentes y recomendadas para trabajar la contrapresion cuando tenemos algún tipo de delay o recibimos una gran cantidad de elementos.
+      Es una de las formas mas potentes y recomendadas para trabajar la contrapresion cuando tenemos algún tipo de delay
+      o recibimos una gran cantidad de elementos.
       Para el reactive data driver el tamaño del buffer se basa en la cantidad de elementos y no en los bytes.
     */
     @GetMapping("/listar-datadriver")
     public String listarDataDriver(Model model){
-        Flux<Producto> productos = dao.findAll().map(producto -> {
-            producto.setNombre(producto.getNombre().toUpperCase());
-            return producto;
-        }).delayElements(Duration.ofSeconds(1));  //El lunes hacer pruebas quitando el reactive data driver!!!!!!!!!!!!!!!!
+        Flux<Producto> productos = service.findAllConNombreUpperCase().delayElements(Duration.ofSeconds(1));  //El lunes hacer pruebas quitando el reactive data driver!!!!!!!!!!!!!!!!
 
         productos.subscribe(prod -> log.info(prod.getNombre()));
 
@@ -67,10 +94,7 @@ public class ProductoController {
      */
     @GetMapping({"/listar-full"})
     public String listarFull(Model model){
-        Flux<Producto> productos = dao.findAll().map(producto -> {
-            producto.setNombre(producto.getNombre().toUpperCase());
-            return producto;
-        }).repeat(5000);
+        Flux<Producto> productos = service.findAllConNombreUpperCaseRepeat();
 
         model.addAttribute("productos", productos);
         model.addAttribute("titulo", "Listado de productos");
@@ -85,10 +109,7 @@ public class ProductoController {
      */
     @GetMapping({"/listar-chunked"})
     public String listarChunked(Model model){
-        Flux<Producto> productos = dao.findAll().map(producto -> {
-            producto.setNombre(producto.getNombre().toUpperCase());
-            return producto;
-        }).repeat(5000);
+        Flux<Producto> productos = service.findAllConNombreUpperCaseRepeat();
 
         model.addAttribute("productos", productos);
         model.addAttribute("titulo", "Listado de productos");
