@@ -45,6 +45,7 @@ public class ProductoController {
     public Mono<String> crear(Model model){
         model.addAttribute("producto", new Producto());
         model.addAttribute("titulo", "Formulario de producto");
+        model.addAttribute("boton", "Crear");
         return Mono.just("form");   //Cuando retornamos el nombre de la vista se carga dicha vista dentro de la peticion http
     }
 
@@ -57,10 +58,33 @@ public class ProductoController {
         }).thenReturn("redirect:/listar"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
     }
 
+    //Otra version mas reactiva del metodo editar pero con un inconveniente, no se puede bindear el objeto producto con el formulario
+    @GetMapping("/form-v2/{id}")
+    public Mono<String> editarV2(@PathVariable String id, Model model){
+
+        return service.findById(id).doOnNext(p -> {
+            log.info("Producto recuperado: " + p.getNombre());
+            model.addAttribute("titulo", "Editar producto");
+            model.addAttribute("boton", "Editar");
+            model.addAttribute("producto", p);
+        }).defaultIfEmpty(new Producto())
+                .flatMap(p -> {
+                    if(p.getId() == null){
+                        return Mono.error(new InterruptedException("No existe el producto a editar"));
+                    }
+                    return Mono.just(p);
+                })
+                .then(Mono.just("form"))
+                .onErrorResume(ex -> Mono.just("redirect:/listar?error=no+existe+el+producto+a+editar"));
+
+
+    }
+
     @GetMapping("/form/{id}")
     public Mono<String> editar(@PathVariable String id, Model model){ //Model para poder ir a buscar el producto por id y pasarlo a la vista
         Mono<Producto> productoMono = service.findById(id).doOnNext(p -> log.info("Producto recuperado: " + p.getNombre())).defaultIfEmpty(new Producto()); //Si no se encuentra el producto se crea un producto vacio
 
+        model.addAttribute("boton", "Editar");
         model.addAttribute("titulo", "Editar producto");
         model.addAttribute("producto", productoMono);
 

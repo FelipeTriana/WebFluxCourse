@@ -17,7 +17,7 @@
         </div>
         <div>
             <label for="precio">Precio</label>
-            <div><input type="number" th:field="*{precio}"></div> <!-- th mapea el campo segun el nombre del atributo de Producto-->
+            <div><input type="number"  th:field="*{precio}" step="0.01"></div> <!-- th mapea el campo segun el nombre del atributo de Producto-->
         </div>
         <div>
             <label for="createAt">Fecha</label>
@@ -25,7 +25,7 @@
         </div>
         <div>
 
-            <div><input type="submit" value="Crear"></div>
+            <div><input type="submit" th:value="${boton}"></div>
         </div>
     </form>
 </div>
