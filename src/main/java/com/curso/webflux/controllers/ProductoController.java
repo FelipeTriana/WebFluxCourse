@@ -2,11 +2,13 @@ package com.curso.webflux.controllers;
 
 import com.curso.webflux.models.documents.Producto;
 import com.curso.webflux.models.services.ProductoService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Date;
 
 @SessionAttributes("producto") //Para que el objeto producto se mantenga en la sesion (Para poder tener presente el id del producto que se esta editando)
 @Controller
@@ -50,12 +53,24 @@ public class ProductoController {
     }
 
     //El objeto producto es bidireccional, va del controlador a la vista y de la vista al controlador
+    //@Valid es para que se apliquen las validaciones que se encuentran en la clase Producto
+    //BindingResult es para poder manejar los errores de validacion y debe ir justo despues del objeto que se esta validando
+    //Como el objeto producto ya se esta pasando como parametro no es necesario pasarlo como atributo del model, se motrara en la vista automaticamente, esto es porque la clase se llama igual que el nombre del atributo pasado a model: model.addAttribute("producto", new Producto());
     @PostMapping("/form")
-    public Mono<String> guardar(Producto producto, SessionStatus status){ //SessionStatus para limpiar el objeto producto de la sesion
-        status.setComplete(); //Limpiamos el objeto producto de la sesion cuando finaliza el proceso y es guardado en la bd
-        return service.save(producto).doOnNext(p -> {
-            log.info("Producto guardado: " + p.getNombre() + " Id: " + p.getId());
-        }).thenReturn("redirect:/listar"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
+    public Mono<String> guardar(@Valid Producto producto, BindingResult result, Model model, SessionStatus status){ //SessionStatus para limpiar el objeto producto de la sesion
+        if (result.hasErrors()){
+            model.addAttribute("titulo", "Errores en formulario producto"); //Si hay errores en el formulario se cambia el titulo
+            model.addAttribute("boton", "Guardar");
+            return Mono.just("form");
+        } else {
+            status.setComplete(); //Limpiamos el objeto producto de la sesion cuando finaliza el proceso y es guardado en la bd
+            if (producto.getCreateAt() == null){
+                producto.setCreateAt(new Date());
+            }
+            return service.save(producto).doOnNext(p -> {
+                log.info("Producto guardado: " + p.getNombre() + " Id: " + p.getId());
+            }).thenReturn("redirect:/listar?success=producto+guardado+con+exito"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
+        }
     }
 
     //Otra version mas reactiva del metodo editar pero con un inconveniente, no se puede bindear el objeto producto con el formulario

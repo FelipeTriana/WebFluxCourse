@@ -14,10 +14,12 @@
         <div>
             <label for="nombre">Nombre</label> <!-- for es un atributo html para enlazar la etiqueta label con el campo-->
             <div><input type="text" th:field="*{nombre}"></div>
+            <small th:if="${#fields.hasErrors('nombre')}" th:errors="*{nombre}"></small>
         </div>
         <div>
             <label for="precio">Precio</label>
             <div><input type="number"  th:field="*{precio}" step="0.01"></div> <!-- th mapea el campo segun el nombre del atributo de Producto-->
+            <small th:if="${#fields.hasErrors('precio')}" th:errors="*{precio}"></small>
         </div>
         <div>
             <label for="createAt">Fecha</label>
