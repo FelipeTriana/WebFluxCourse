@@ -73,6 +73,22 @@ public class ProductoController {
         }
     }
 
+    //Metodo que elimina un producto por id
+    @GetMapping("/eliminar/{id}")
+    public Mono<String> eliminar(@PathVariable String id){
+        return service.findById(id).defaultIfEmpty(new Producto()) //Si no se encuentra el producto se crea un producto vacio
+                .flatMap(p -> {
+                    if(p.getId() == null){
+                        return Mono.error(new InterruptedException("No existe el producto a eliminar"));
+                    }
+                    return Mono.just(p);
+                })
+                .flatMap(service::delete)
+                .then(Mono.just("redirect:/listar?success=producto+eliminado+con+exito"))
+                .onErrorResume(ex -> Mono.just("redirect:/listar?error=no+existe+el+producto+a+eliminar"));
+    }
+
+
     //Otra version mas reactiva del metodo editar pero con un inconveniente, no se puede bindear el objeto producto con el formulario
     @GetMapping("/form-v2/{id}")
     public Mono<String> editarV2(@PathVariable String id, Model model){
@@ -80,7 +96,7 @@ public class ProductoController {
         return service.findById(id).doOnNext(p -> {
             log.info("Producto recuperado: " + p.getNombre());
             model.addAttribute("titulo", "Editar producto");
-            model.addAttribute("boton", "Editar");
+            model.addAttribute("boton", "Editar");  //Para cambiar el texto del boton. Asi se setean las variables invocadas en el template
             model.addAttribute("producto", p);
         }).defaultIfEmpty(new Producto())
                 .flatMap(p -> {
