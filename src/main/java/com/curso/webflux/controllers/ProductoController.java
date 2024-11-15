@@ -1,5 +1,6 @@
 package com.curso.webflux.controllers;
 
+import com.curso.webflux.models.documents.Categoria;
 import com.curso.webflux.models.documents.Producto;
 import com.curso.webflux.models.services.ProductoService;
 import jakarta.validation.Valid;
@@ -9,10 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.SessionAttributes;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.support.SessionStatus;
 import org.thymeleaf.spring6.context.webflux.ReactiveDataDriverContextVariable;
 import reactor.core.publisher.Flux;
@@ -29,6 +27,12 @@ public class ProductoController {
     private ProductoService service;
 
     private static final Logger log = LoggerFactory.getLogger(ProductoController.class);
+
+    //Metodo que retorna un flux de categorias
+    @ModelAttribute("categorias") //Con este nombre se guarda la vista para que podamos hacer referencia en el formulario
+    public Flux<Categoria> categorias(){
+        return service.findAllCategoria();
+    }
 
     //Se renderiza la vista listar.html con los productos que se encuentran en la base de datos
     @GetMapping({"/listar", "/"})
@@ -64,11 +68,18 @@ public class ProductoController {
             return Mono.just("form");
         } else {
             status.setComplete(); //Limpiamos el objeto producto de la sesion cuando finaliza el proceso y es guardado en la bd
+
+            Mono<Categoria> categoria = service.findCategoriaById(producto.getCategoria().getId());
+
+        return  categoria.flatMap(c -> {
             if (producto.getCreateAt() == null){
                 producto.setCreateAt(new Date());
             }
-            return service.save(producto).doOnNext(p -> {
-                log.info("Producto guardado: " + p.getNombre() + " Id: " + p.getId());
+                producto.setCategoria(c);
+                return service.save(producto);
+            }).doOnNext(p -> {
+            log.info("Categoria asignada: " + p.getCategoria().getNombre() + " Id Cat: " + p.getCategoria().getId());
+            log.info("Producto guardado: " + p.getNombre() + " Id: " + p.getId());
             }).thenReturn("redirect:/listar?success=producto+guardado+con+exito"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
         }
     }
