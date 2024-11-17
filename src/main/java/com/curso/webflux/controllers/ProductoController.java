@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -16,8 +18,10 @@ import org.thymeleaf.spring6.context.webflux.ReactiveDataDriverContextVariable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.File;
 import java.time.Duration;
 import java.util.Date;
+import java.util.UUID;
 
 @SessionAttributes("producto") //Para que el objeto producto se mantenga en la sesion (Para poder tener presente el id del producto que se esta editando)
 @Controller
@@ -25,6 +29,9 @@ public class ProductoController {
 
     @Autowired
     private ProductoService service;
+
+    @Value("${config.uploads.path}")
+    private String path;
 
     private static final Logger log = LoggerFactory.getLogger(ProductoController.class);
 
@@ -60,8 +67,9 @@ public class ProductoController {
     //@Valid es para que se apliquen las validaciones que se encuentran en la clase Producto
     //BindingResult es para poder manejar los errores de validacion y debe ir justo despues del objeto que se esta validando
     //Como el objeto producto ya se esta pasando como parametro no es necesario pasarlo como atributo del model, se motrara en la vista automaticamente, esto es porque la clase se llama igual que el nombre del atributo pasado a model: model.addAttribute("producto", new Producto());
+    //Desde el request se va enviar un parametro de tipo file con ese mismo nombre(file), por eso se usa @RequestPart (Mismo nombre en el formulario)
     @PostMapping("/form")
-    public Mono<String> guardar(@Valid Producto producto, BindingResult result, Model model, SessionStatus status){ //SessionStatus para limpiar el objeto producto de la sesion
+    public Mono<String> guardar(@Valid Producto producto, BindingResult result, Model model, @RequestPart FilePart file, SessionStatus status){ //SessionStatus para limpiar el objeto producto de la sesion
         if (result.hasErrors()){
             model.addAttribute("titulo", "Errores en formulario producto"); //Si hay errores en el formulario se cambia el titulo
             model.addAttribute("boton", "Guardar");
@@ -75,12 +83,25 @@ public class ProductoController {
             if (producto.getCreateAt() == null){
                 producto.setCreateAt(new Date());
             }
+                if (!file.filename().isEmpty()){
+                    producto.setFoto(UUID.randomUUID().toString() + "-" + file.filename()
+                            .replace(" ", "")
+                            .replace(":", "")
+                            .replace("\\", ""));
+                }
                 producto.setCategoria(c);
                 return service.save(producto);
             }).doOnNext(p -> {
             log.info("Categoria asignada: " + p.getCategoria().getNombre() + " Id Cat: " + p.getCategoria().getId());
             log.info("Producto guardado: " + p.getNombre() + " Id: " + p.getId());
-            }).thenReturn("redirect:/listar?success=producto+guardado+con+exito"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
+            })
+            .flatMap(p -> {
+                if (!file.filename().isEmpty()){
+                    return file.transferTo( new File(path + p.getFoto()));
+                }
+                return Mono.empty();
+            })
+            .thenReturn("redirect:/listar?success=producto+guardado+con+exito"); //El string redirige a la vista listar.html, NO es que cargue la vista sino que redirige a la url
         }
     }
 

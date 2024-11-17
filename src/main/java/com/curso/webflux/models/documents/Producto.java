@@ -27,6 +27,8 @@ public class Producto {
     @Valid //Para que se apliquen las validaciones que se encuentran en la clase Categoria
     private Categoria categoria;
 
+    private String foto;
+
     public Producto(){}
 
     public Producto(String nombre, Double precio) {
@@ -78,5 +80,13 @@ public class Producto {
 
     public void setCategoria(Categoria categoria) {
         this.categoria = categoria;
+    }
+
+    public String getFoto() {
+        return foto;
+    }
+
+    public void setFoto(String foto) {
+        this.foto = foto;
     }
 }
