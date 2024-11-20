@@ -1,7 +1,8 @@
 package com.curso.webflux;
 
-import com.curso.webflux.models.dao.ProductoDao;
+import com.curso.webflux.models.documents.Categoria;
 import com.curso.webflux.models.documents.Producto;
+import com.curso.webflux.models.services.ProductoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import java.util.Date;
 public class WebfluxApplication implements CommandLineRunner {
 
 	@Autowired
-	private ProductoDao dao;
+	private ProductoService service;
 
 	@Autowired
 	private ReactiveMongoTemplate mongoTemplate;
@@ -31,17 +32,35 @@ public class WebfluxApplication implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 		mongoTemplate.dropCollection("productos").subscribe();
-		Flux.just(new Producto("Televisor", 456.89),
-				new Producto("Radio", 89.00),
-				new Producto("Laptop", 789.12),
-				new Producto("Tablet", 450.00),
-				new Producto("Impresora", 300.00),
-				new Producto("Celular", 150.00)
+		mongoTemplate.dropCollection("categorias").subscribe();
+
+		Categoria electronico = new Categoria("Electrónico");
+		Categoria deporte = new Categoria("Deporte");
+		Categoria computacion = new Categoria("Computación");
+		Categoria muebles = new Categoria("Mueble");
+
+		Flux.just(electronico, deporte, computacion, muebles)
+				.flatMap(service::saveCategoria)
+				.doOnNext(c -> log.info("Categoria creada: " + c.getId() + " " + c.getNombre()))
+				.thenMany(  //thenMany permite iniciar la ejecucion de un flujo Flux despues de la ejecucion del flujo de categorias
+						Flux.just(new Producto("Televisor", 456.89, electronico),
+										new Producto("Radio", 89.00, electronico),
+										new Producto("Laptop", 789.12, computacion),
+										new Producto("Tablet", 450.00, electronico),
+										new Producto("Impresora", 300.00, electronico),
+										new Producto("Celular", 150.00, electronico),
+										new Producto("Mica Shidori", 150.00, muebles),
+										new Producto("Silla Gamer", 150.00, muebles),
+										new Producto("Mesa Gamer", 150.00, muebles),
+										new Producto("Gimnasio", 150.00, deporte),
+										new Producto("Cinta de correr", 150.00, deporte)
+
+								)
+								.flatMap(producto -> {
+									producto.setCreateAt(new Date());
+									return service.save(producto);
+								})
 				)
-				.flatMap(producto -> {
-					producto.setCreateAt(new Date());
-					return dao.save(producto);
-				})
 				.subscribe(prod -> log.info("Insert: " + prod.getId() + " " + prod.getNombre()));
 	}
 }
