@@ -8,6 +8,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -19,6 +23,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Date;
 import java.util.UUID;
@@ -39,6 +45,30 @@ public class ProductoController {
     @ModelAttribute("categorias") //Con este nombre se guarda la vista para que podamos hacer referencia en el formulario
     public Flux<Categoria> categorias(){
         return service.findAllCategoria();
+    }
+
+    @GetMapping("/ver/{id}")
+    public Mono<String> ver(@PathVariable String id, Model model){
+        return service.findById(id).doOnNext(p -> {
+            model.addAttribute("producto", p);
+            model.addAttribute("titulo", "Detalle producto");
+        }).switchIfEmpty(Mono.just(new Producto()))
+                .flatMap(p -> {
+                    if (p.getId() == null){
+                        return Mono.error(new InterruptedException("No existe el producto"));
+                    }
+                    return Mono.just(p);
+                })
+                .then(Mono.just("ver"))
+                .onErrorResume(ex -> Mono.just("redirect:/listar?error=no+existe+el+producto"));
+    }
+
+    @GetMapping("/uploads/img/{nombreFoto:.+}") //Expresion regular en el path variable para poder colocar la extensión de la foto
+    public Mono<ResponseEntity<Resource>> verFoto(@PathVariable String nombreFoto) throws MalformedURLException {
+        Path ruta = Path.of(path).resolve(nombreFoto).toAbsolutePath(); //Concatena a la ruta definida en el application.properties el nombre de la foto
+        Resource imagen = new UrlResource(ruta.toUri());
+
+        return Mono.just(ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + imagen.getFilename() + "\"").body(imagen));
     }
 
     //Se renderiza la vista listar.html con los productos que se encuentran en la base de datos
